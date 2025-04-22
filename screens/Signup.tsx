@@ -1,9 +1,5 @@
 // screens/Signup.tsx
 import React, { useState } from 'react';
-import { Platform, TextInput } from 'react-native';
-import BasicDatePicker from '../components/BasicDatePicker';
-import { Button as RNButton } from 'react-native';
-
 import {
   View,
   Text,
@@ -32,13 +28,12 @@ const Signup: React.FC = () => {
 
   const [form, setForm] = useState<SignupForm>({
     name: '',
-    dateOfBirth: new Date().toISOString().slice(0, 10),
+    dateOfBirth: '',
     gender: '',
     email: '',
     password: '',
   });
-  const [open, setOpen] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);  
+
   const [confirmPassword, setConfirmPassword] = useState<string>('');
 
   const [errors, setErrors] = useState({
@@ -52,7 +47,15 @@ const Signup: React.FC = () => {
 
   const handleChange = (field: keyof typeof form, value: string) => {
     // If this is the date field, ensure it's in the correct format
-    setForm({ ...form, [field]: value });
+    if (field === 'dateOfBirth') {
+      // Ensure date format is YYYY-MM-DD
+      // This regex will allow typing but ensure proper formatting
+      if (value === '' || /^\d{0,4}(-\d{0,2})?(-\d{0,2})?$/.test(value)) {
+        setForm({ ...form, [field]: value });
+      }
+    } else {
+      setForm({ ...form, [field]: value });
+    }
     
     setErrorMessage(''); // Clear general error on typing
 
@@ -61,16 +64,6 @@ const Signup: React.FC = () => {
       setErrors({ ...errors, [field]: '' });
     }
   };
-
-  const onDateChange = (_: any, selectedDate?: Date) => {
-       setShowDatePicker(Platform.OS === 'ios');
-        if (selectedDate) {
-          const iso = selectedDate.toISOString().slice(0,10);
-          setForm({ ...form, dateOfBirth: iso });
-          if (errors.dateOfBirth) setErrors({ ...errors, dateOfBirth: '' });
-        }
-      };
-
 
   const validateDateFormat = (dateString: string): boolean => {
     // Check if the format is YYYY-MM-DD
@@ -157,8 +150,6 @@ const Signup: React.FC = () => {
     return valid;
   };
 
-
-
   const handleNext = async () => {
     if (validate()) {
       try {
@@ -206,34 +197,14 @@ const Signup: React.FC = () => {
           error={errors.name}
         />
 
-        
-            <View style={{ width: '100%', marginBottom: 20 }}>
-              <Text style={styles.label}>Date of Birth</Text>
-              
-              {Platform.OS === 'web' ? (
-                <TextInput
-                  style={[styles.input, { paddingVertical: 12 }]}
-                  value={form.dateOfBirth}
-                  onChangeText={(text) => {
-                    setForm({ ...form, dateOfBirth: text });
-                    if (errors.dateOfBirth) setErrors({ ...errors, dateOfBirth: '' });
-                  }}
-                  placeholder="YYYY‑MM‑DD"
-                  keyboardType="numeric"
-                />
-              ) : (
-                <BasicDatePicker
-                  label="Date of Birth"
-                  value={form.dateOfBirth}
-                  onChange={(date) => handleChange('dateOfBirth', date)}
-                  error={errors.dateOfBirth}
-                />
-              )}
-              
-              {errors.dateOfBirth ? (
-                <Text style={styles.errorMessage}>{errors.dateOfBirth}</Text>
-              ) : null}
-            </View>
+        <InputField
+          label="Date of Birth"
+          placeholder="YYYY-MM-DD"
+          value={form.dateOfBirth}
+          onChangeText={(text) => handleChange('dateOfBirth', text)}
+          error={errors.dateOfBirth}
+        />
+
         <InputField
           label="Gender"
           placeholder="Enter your gender"
@@ -315,13 +286,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
   },
-  label: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#113a78',
-    marginBottom: 5,
-  },
   nextButton: {
     width: '100%',
     height: 48,
@@ -363,13 +327,6 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 15,
     textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    padding: Platform.OS === 'web' ? 8 : 10,
-    marginBottom: 10,
   },
 });
 

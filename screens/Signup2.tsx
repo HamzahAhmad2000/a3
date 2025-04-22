@@ -263,14 +263,13 @@ const Signup2: React.FC = () => {
         <Text style={styles.title}>Add your preferences</Text>
         <Text style={styles.subtitle}>Find the best carpooling partners.</Text>
 
-        <InputField
+        <DropdownField
           label="University"
-          placeholder="Enter your university"
           value={form.university}
-          onChangeText={(text) => handleChange('university', text)}
+          onSelect={(item) => handleChange('university', item)}
+          options={universities}
           error={errors.university}
         />
-
 
         <InputField
           label="Emergency Contact"
