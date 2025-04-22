@@ -89,7 +89,7 @@ export const AuthService = {
       
       // Format the data according to what the backend expects
       const formattedData = {
-        userId: data.user_id,  // The backend might expect userId instead of user_id
+        user_id: data.user_id,  // The backend might expect userId instead of user_id
         university: data.university,
         emergencyContact: data.emergencyContact,
         genderPreference: data.genderPreference,

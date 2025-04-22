@@ -62,7 +62,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 const StackNavigator: React.FC = () => {
   return (
     <Stack.Navigator 
-      initialRouteName="Homepage"
+      initialRouteName="Login"
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: 'white' },
