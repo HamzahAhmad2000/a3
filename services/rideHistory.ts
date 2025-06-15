@@ -54,7 +54,7 @@ export interface RateRideResponse {
 export const RideHistoryService = {
   async getRideHistory(filters: RideHistoryFilterOptions = {}): Promise<RideHistoryItem[]> {
     try {
-      const response = await api.get('/ride-history/history', { params: filters });
+      const response = await api.get('/rides/history', { params: filters });
       return response.data;
     } catch (error) {
       console.error('Error fetching ride history:', error);
@@ -64,7 +64,7 @@ export const RideHistoryService = {
   
   async getRideDetails(rideId: string): Promise<RideHistoryItem> {
     try {
-      const response = await api.get(`/ride-history/${rideId}`);
+      const response = await api.get(`/rides/${rideId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching ride details:', error);
@@ -74,7 +74,7 @@ export const RideHistoryService = {
   
   async rateRide(data: RateRideRequest): Promise<RateRideResponse> {
     try {
-      const response = await api.post(`/ride-history/${data.ride_id}/rate`, {
+      const response = await api.post(`/rides/${data.ride_id}/rate`, {
         rating: data.rating,
         feedback: data.feedback
       });

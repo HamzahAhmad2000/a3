@@ -18,17 +18,17 @@ export interface ProcessHobbiesResponse {
 export const MatchService = {
   async getCompanions(): Promise<Companion[]> {
     try {
-      const response = await api.get('/match/companions');
+      const response = await api.get('/matches/companions');
       return response.data;
     } catch (error) {
-      console.error('Error getting companions:', error);
+      console.error('Error fetching companions:', error);
       throw error;
     }
   },
   
   async processHobbies(description: string): Promise<ProcessHobbiesResponse> {
     try {
-      const response = await api.post('/match/process-hobbies', { description });
+      const response = await api.post('/matches/process-hobbies', { description });
       return response.data;
     } catch (error) {
       console.error('Error processing hobbies:', error);

@@ -19,7 +19,6 @@ import Button from '../components/Button';
 import UploadButton from '../components/UploadButton';
 import * as ImagePicker from 'expo-image-picker';
 import { AuthService, ProfileForm, SignupForm } from '../services/auth';
-import { MatchService } from '../services/match';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Signup2ScreenNavigationProp = StackNavigationProp<
@@ -82,11 +81,21 @@ const Signup2: React.FC = () => {
   }, [navigation]);
 
   const universities = [
-    'University A',
-    'University B',
-    'University C',
-    'University D',
-    'University E',
+    'Universiti Malaya (UM)',
+    'Universiti Kebangsaan Malaysia (UKM)',
+    'Universiti Sains Malaysia (USM)',
+    'Universiti Putra Malaysia (UPM)',
+    'Universiti Teknologi Malaysia (UTM)',
+    'Universiti Teknologi MARA (UiTM)',
+    'International Islamic University Malaysia (IIUM)',
+    'Universiti Tunku Abdul Rahman (UTAR)',
+    'Multimedia University (MMU)',
+    'Sunway University',
+    'Taylor\'s University',
+    'Monash University Malaysia',
+    'University of Nottingham Malaysia',
+    'Heriot-Watt University Malaysia',
+    'Curtin University Malaysia',
   ];
 
   const genderPreferences = [
@@ -224,9 +233,8 @@ const Signup2: React.FC = () => {
         
         await AuthService.registerProfile(profileData);
         
-        // Process hobbies for matching
-        const hobbyDescription = `${form.likes} ${form.dislikes}`;
-        await MatchService.processHobbies(hobbyDescription);
+        // Note: Hobby processing is now handled automatically in the backend
+        // during profile registration, so we don't need to call MatchService.processHobbies
         
         // Clear the stored step 1 data
         await AsyncStorage.removeItem('signupFormStep1');
@@ -263,14 +271,13 @@ const Signup2: React.FC = () => {
         <Text style={styles.title}>Add your preferences</Text>
         <Text style={styles.subtitle}>Find the best carpooling partners.</Text>
 
-        <InputField
+        <DropdownField
           label="University"
-          placeholder="Enter your university"
           value={form.university}
-          onChangeText={(text) => handleChange('university', text)}
+          onSelect={(item) => handleChange('university', item)}
+          options={universities}
           error={errors.university}
         />
-
 
         <InputField
           label="Emergency Contact"

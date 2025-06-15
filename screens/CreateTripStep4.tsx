@@ -67,6 +67,9 @@ const CreateTripStep4: React.FC = () => {
   const handleConfirm = async () => {
     setIsLoading(true);
     try {
+      // Debug log the trip data
+      console.log('🚗 Creating ride with trip data:', JSON.stringify(tripData, null, 2));
+      
       // Format data for API call
       const rideData: CreateRideForm = {
         pickup_location: {
@@ -84,13 +87,33 @@ const CreateTripStep4: React.FC = () => {
         payment_method: tripData.paymentMethod || 'cash',
         promo_code: tripData.promoCode || '',
         group_join: false,
-        fare: parseFloat(tripData.fare?.replace(/[^0-9.]/g, '') || '0'),
-        distance: parseFloat(tripData.distance?.replace(/[^0-9.]/g, '') || '0'),
+        fare: (() => {
+          if (typeof tripData.fare === 'number') {
+            return tripData.fare;
+          } else if (typeof tripData.fare === 'string') {
+            return parseFloat(tripData.fare.replace(/[^0-9.]/g, '') || '0');
+          } else {
+            return 0; // Default fare if undefined
+          }
+        })(),
+        distance: (() => {
+          if (typeof tripData.distance === 'number') {
+            return tripData.distance;
+          } else if (typeof tripData.distance === 'string') {
+            return parseFloat(tripData.distance.replace(/[^0-9.]/g, '') || '0');
+          } else {
+            return 0; // Default distance if undefined
+          }
+        })(),
         sector: 'G8', // Default sector - in a real app this would be derived from the location
       };
 
+      // Debug log the formatted ride data
+      console.log('📤 Sending ride data to API:', JSON.stringify(rideData, null, 2));
+
       // Create the ride
       const response = await RideService.createRide(rideData);
+      console.log('✅ Ride created successfully:', response);
 
       // Clear trip form data
       await AsyncStorage.removeItem('tripForm');
@@ -107,7 +130,15 @@ const CreateTripStep4: React.FC = () => {
         ]
       );
     } catch (error) {
-      console.error('Error creating ride:', error);
+      console.error('❌ Error creating ride:', error);
+      
+      // More detailed error logging
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      
       Alert.alert('Error', 'Failed to create ride. Please try again.');
     } finally {
       setIsLoading(false);
