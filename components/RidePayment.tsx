@@ -58,7 +58,7 @@ const RidePayment: React.FC<RidePaymentProps> = ({
     try {
       if (selectedMethod === 'wallet') {
         // Process wallet payment
-        const result = await WalletService.payForRide(rideId, amount);
+        const result = await WalletService.payForRide({ ride_id: rideId, amount });
         
         if (result.success) {
           Alert.alert('Payment Successful', 'Payment completed using your wallet balance.');

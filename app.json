@@ -9,12 +9,28 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to help you set your pickup location for rides.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to help you set your pickup location for rides."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyCjCqI_0pku1U6AZuib0bKk32jDJTXWyso"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCjCqI_0pku1U6AZuib0bKk32jDJTXWyso"
+        }
       }
     },
     "web": {
@@ -24,6 +40,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to help you set your pickup location for rides.",
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to help you set your pickup location for rides."
+        }
+      ],
       [
         "expo-splash-screen",
         {

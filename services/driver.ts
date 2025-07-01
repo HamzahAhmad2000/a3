@@ -7,8 +7,8 @@ export interface DriverApplicationForm {
   vehicle_make: string;
   vehicle_model: string;
   vehicle_year: number;
-  license_plate: string;
-  vehicle_reg_url: string;
+  vehicle_license_plate: string; // Backend expects this field name
+  vehicle_registration_url: string; // Backend expects this field name
 }
 
 export interface DriverApplicationStatus {
@@ -29,8 +29,8 @@ export interface DriverApplication {
   vehicle_make: string;
   vehicle_model: string;
   vehicle_year: number;
-  license_plate: string;
-  vehicle_reg_url: string;
+  vehicle_license_plate: string;
+  vehicle_registration_url: string;
   status: string;
   submitted_at: string;
 }

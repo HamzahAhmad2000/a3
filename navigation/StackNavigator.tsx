@@ -23,6 +23,14 @@ import RideHistory from '../screens/RideHistory';
 import RideDetails from '../screens/RideDetails';
 import Wallet from '../screens/Wallet';
 import WalletTopUp from '../screens/WalletTopUp';
+import DriverApplicationScreen from '../screens/DriverApplicationScreen';
+import AdminDashboard from '../screens/AdminDashboard';
+import EmergencyScreen from '../screens/EmergencyScreen';
+import GroupRideScreen from '../screens/GroupRideScreen';
+import IntegrationTestScreen from '../screens/IntegrationTestScreen';
+import FriendsScreen from '../screens/FriendsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import EditProfile from '../screens/EditProfile';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -55,6 +63,14 @@ export type RootStackParamList = {
   RideDetails: { rideId: string };
   Wallet: undefined;
   WalletTopUp: undefined;
+  DriverApplication: undefined;
+  AdminDashboard: undefined;
+  Emergency: undefined;
+  GroupRide: { rideId?: string };
+  IntegrationTest: undefined;
+  Friends: undefined;
+  Settings: undefined;
+  EditProfile: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -93,6 +109,14 @@ const StackNavigator: React.FC = () => {
       <Stack.Screen name="RideDetails" component={RideDetails} />
       <Stack.Screen name="Wallet" component={Wallet} />
       <Stack.Screen name="WalletTopUp" component={WalletTopUp} />
+      <Stack.Screen name="DriverApplication" component={DriverApplicationScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+      <Stack.Screen name="Emergency" component={EmergencyScreen} />
+      <Stack.Screen name="GroupRide" component={GroupRideScreen} />
+      <Stack.Screen name="IntegrationTest" component={IntegrationTestScreen} />
+      <Stack.Screen name="Friends" component={FriendsScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfile} />
     </Stack.Navigator>
   );
 };

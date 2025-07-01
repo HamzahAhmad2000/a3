@@ -23,22 +23,53 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface Ride {
   _id: string;
   ride_id: string;
-  creator_name: string;
+  creator_name?: string; // Keep for backward compatibility
+  creator_info?: { // New structure from backend
+    name: string;
+    email: string;
+    university?: string;
+    gender?: string;
+    sector?: string;
+  };
   creator_user_id: string;
   car_type: string;
   passenger_slots: number;
-  active: boolean;
+  available_slots?: number;
+  current_passengers?: number;
+  active?: boolean;
   fare: number | null;
   distance: number | null;
   group_join: boolean;
-  location: {
+  location?: { // Keep for backward compatibility
     address: string;
     coordinates: {
       latitude: number;
       longitude: number;
     };
   };
+  pickup_location?: {
+    address: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  dropoff_location?: {
+    address: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  sector?: string;
+  status?: string;
   created_at: string;
+  match_social?: boolean;
+  user_already_joined?: boolean;
+  is_creator?: boolean;
+  can_join?: boolean;
+  can_leave?: boolean;
+  can_end?: boolean;
 }
 
 const JoinRide: React.FC = () => {
@@ -47,26 +78,26 @@ const JoinRide: React.FC = () => {
   const [filteredRides, setFilteredRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchText, setSearchText] = useState<string>('');
-  const [selectedSector, setSelectedSector] = useState<string>('G8'); // Default sector
-
-  // Define available sectors - in a real app, this would be loaded from a database
-  const sectors = ['G8', 'G9', 'G10', 'F8', 'F9', 'E9', 'All'];
+  // Removed sector filtering - no longer needed
 
   useEffect(() => {
     // Load available rides
     loadRides();
-  }, [selectedSector]);
+  }, []); // Remove selectedSector dependency
 
   const loadRides = async () => {
     setIsLoading(true);
     try {
-      const sector = selectedSector === 'All' ? '' : selectedSector;
-      const availableRides = await RideService.getAvailableRides(sector);
-      setRides(availableRides);
-      setFilteredRides(availableRides);
+      // Remove sector filtering - get all available rides
+      const response = await RideService.getAvailableRides();
+      const ridesArray = response.rides || []; // Extract rides array from response
+      setRides(ridesArray);
+      setFilteredRides(ridesArray);
     } catch (error) {
       console.error('Error loading rides:', error);
       Alert.alert('Error', 'Failed to load available rides. Please try again.');
+      setRides([]); // Set empty array on error to prevent crashes
+      setFilteredRides([]);
     } finally {
       setIsLoading(false);
     }
@@ -81,8 +112,8 @@ const JoinRide: React.FC = () => {
 
     const filtered = rides.filter(
       (ride) =>
-        ride.creator_name.toLowerCase().includes(text.toLowerCase()) ||
-        ride.location.address.toLowerCase().includes(text.toLowerCase()) ||
+        (ride.creator_info?.name || ride.creator_name || '').toLowerCase().includes(text.toLowerCase()) ||
+        (ride.pickup_location?.address || ride.location?.address || '').toLowerCase().includes(text.toLowerCase()) ||
         ride.car_type.toLowerCase().includes(text.toLowerCase())
     );
     setFilteredRides(filtered);
@@ -93,6 +124,40 @@ const JoinRide: React.FC = () => {
       rideId: ride.ride_id 
     } as any);
   };
+
+  const handleLeaveRide = async (ride: Ride) => {
+    Alert.alert(
+      'Leave Ride',
+      'Are you sure you want to leave this ride?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await RideService.leaveRide(ride.ride_id);
+              Alert.alert('Success', 'You have left the ride successfully.');
+              loadRides(); // Refresh the list
+            } catch (error) {
+              console.error('Error leaving ride:', error);
+              Alert.alert('Error', 'Failed to leave the ride. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEndRide = (ride: Ride) => {
+    if (ride.is_creator) {
+      // Navigate to ride details or end ride flow
+      navigation.navigate('RideStarted', { rideId: ride.ride_id } as any);
+    } else {
+      // For passengers, this acts as "leave ride"
+      handleLeaveRide(ride);
+    }
+  };
   const handleRefresh = () => {
     loadRides();
   };
@@ -101,7 +166,7 @@ const JoinRide: React.FC = () => {
     <View style={styles.rideCard}>
       <View style={styles.rideHeader}>
         <View style={styles.driverInfo}>
-          <Text style={styles.driverName}>{item.creator_name}</Text>
+          <Text style={styles.driverName}>{item.creator_info?.name || item.creator_name || 'Unknown Driver'}</Text>
           <Text style={styles.carType}>{item.car_type}</Text>
         </View>
         <View style={styles.ratingContainer}>
@@ -144,7 +209,7 @@ const JoinRide: React.FC = () => {
             resizeMode="contain"
           />
           <Text style={styles.detailText} numberOfLines={1}>
-            {item.location.address}
+            {item.pickup_location?.address || item.location?.address || 'Location not available'}
           </Text>
         </View>
       </View>
@@ -156,13 +221,44 @@ const JoinRide: React.FC = () => {
         {item.group_join && <Text style={styles.groupText}>Group ride</Text>}
       </View>
 
-      <TouchableOpacity 
-        style={styles.joinButton} 
-        onPress={() => handleJoinRide(item)}
-        disabled={item.passenger_slots <= 0}
-      >
-        <Text style={styles.joinButtonText}>Join Ride</Text>
-      </TouchableOpacity>
+      {/* Dynamic button based on user's relationship to the ride */}
+      {item.can_join ? (
+        <TouchableOpacity 
+          style={[
+            styles.joinButton,
+            item.passenger_slots <= 0 && styles.disabledButton
+          ]} 
+          onPress={() => handleJoinRide(item)}
+          disabled={item.passenger_slots <= 0}
+        >
+          <Text style={[
+            styles.joinButtonText,
+            item.passenger_slots <= 0 && styles.disabledButtonText
+          ]}>
+            Join Ride
+          </Text>
+        </TouchableOpacity>
+      ) : item.can_leave || item.can_end ? (
+        <TouchableOpacity 
+          style={[
+            styles.leaveButton
+          ]} 
+          onPress={() => handleEndRide(item)}
+        >
+          <Text style={styles.leaveButtonText}>
+            {item.is_creator ? 'Manage Ride' : 'Leave Ride'}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity 
+          style={styles.disabledButton}
+          disabled
+        >
+          <Text style={styles.disabledButtonText}>
+            {item.is_creator ? 'Your Ride' : 'Unavailable'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -189,34 +285,7 @@ const JoinRide: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.sectorContainer}>
-        <Text style={styles.sectorLabel}>Filter by Sector:</Text>
-        <FlatList
-          data={sectors}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.sectorButton,
-                selectedSector === item && styles.selectedSectorButton,
-              ]}
-              onPress={() => setSelectedSector(item)}
-            >
-              <Text
-                style={[
-                  styles.sectorButtonText,
-                  selectedSector === item && styles.selectedSectorButtonText,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.sectorList}
-        />
-      </View>
+
 
       {isLoading ? (
         <View style={styles.loaderContainer}>
@@ -256,6 +325,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 15,
     alignItems: 'center',
+    marginTop: 30,
   },
   title: {
     fontFamily: 'Inter',
@@ -442,11 +512,35 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  leaveButton: {
+    backgroundColor: '#ff6b6b',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
   joinButtonText: {
     fontFamily: 'Inter',
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  leaveButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  disabledButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888888',
   },
 });
 

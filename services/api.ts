@@ -6,6 +6,11 @@ import { Platform } from 'react-native';
 // API Configuration with fallback URLs for different network scenarios
 const API_CONFIGS = [
   {
+    name: 'Localhost',
+    baseURL: 'http://localhost:5000/api',
+    description: 'Local development server'
+  },
+  {
     name: 'Android Emulator',
     baseURL: 'http://10.0.2.2:5000/api',
     description: 'Standard Android emulator host mapping'
@@ -14,15 +19,10 @@ const API_CONFIGS = [
     name: 'Local Network',
     baseURL: 'http://192.168.100.153:5000/api',
     description: 'Direct IP access via local network'
-  },
-  {
-    name: 'Localhost',
-    baseURL: 'http://127.0.0.1:5000/api',
-    description: 'Localhost fallback'
   }
 ];
 
-// Current API configuration
+// Current API configuration - Start with localhost since backend is running locally
 let currentConfig = API_CONFIGS[0];
 
 // Authentication failure callback - will be set by AuthService

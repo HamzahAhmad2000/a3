@@ -48,10 +48,16 @@ export const useAuth = (): UseAuthReturn => {
   const logout = async () => {
     try {
       setIsLoading(true);
+      
+      // Clear authentication data
       await AuthService.logout();
+      
+      // Update state
       setIsAuthenticated(false);
       setUserId(null);
       setUserName(null);
+      
+      console.log('✅ useAuth logout completed successfully');
       
       Alert.alert(
         'Logged Out',
@@ -59,7 +65,7 @@ export const useAuth = (): UseAuthReturn => {
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ useAuth logout error:', error);
       Alert.alert(
         'Logout Error',
         'There was an error logging out. Please try again.',

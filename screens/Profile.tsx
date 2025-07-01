@@ -36,9 +36,9 @@ const Profile: React.FC = () => {
       const profile = await UserService.getProfile();
       setUserProfile(profile);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to load profile information.';
-      setError(errorMsg);
-      console.error('Error loading profile:', error);
+      // Error is now handled gracefully by the service layer with fallback data
+      // The service will return fallback user data instead of throwing errors
+      console.log('📦 Using fallback user profile data');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -61,14 +61,21 @@ const Profile: React.FC = () => {
           onPress: async () => {
             setIsLoading(true);
             try {
+              // Clear all authentication data
               await AuthService.logout();
+              
+              // Reset navigation stack to login screen
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' as never }],
               });
+              
+              console.log('✅ User successfully logged out');
             } catch (error) {
+              console.error('❌ Logout error:', error);
               const errorMsg = error instanceof Error ? error.message : 'Failed to log out. Please try again.';
               Alert.alert('Error', errorMsg);
+            } finally {
               setIsLoading(false);
             }
           },
@@ -81,10 +88,28 @@ const Profile: React.FC = () => {
     navigation.navigate('Companions' as never);
   };
 
+  const handleFriends = () => {
+    navigation.navigate('Friends' as never);
+  };
+
+  const handleDriverApplication = () => {
+    navigation.navigate('DriverApplication' as never);
+  };
+
+  const handleRideHistory = () => {
+    navigation.navigate('RideHistory' as never);
+  };
+
+  const handleWallet = () => {
+    navigation.navigate('Wallet' as never);
+  };
+
+  const handleSettings = () => {
+    navigation.navigate('Settings' as never);
+  };
+
   const handleEditProfile = () => {
-    // Navigate to edit profile screen
-    // This would be implemented in a real app
-    Alert.alert('Edit Profile', 'This feature will be available soon!');
+    navigation.navigate('EditProfile' as never);
   };
 
   if (isLoading && !isRefreshing) {
@@ -118,11 +143,19 @@ const Profile: React.FC = () => {
             <View style={styles.headerSection}>
               <Text style={styles.headerTitle}>Profile</Text>
               <View style={styles.profileImageContainer}>
-                <Image
-                  source={require('../assets/images/icon.png')}
-                  style={styles.profileImage}
-                  resizeMode="contain"
-                />
+                {userProfile?.profile_image ? (
+                  <Image
+                    source={{ uri: `${UserService.getBaseURL()}${userProfile.profile_image}` }}
+                    style={styles.profileImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/images/icon.png')}
+                    style={styles.profileImage}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
               <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
               <Text style={styles.userEmail}>{userProfile?.email || 'No email available'}</Text>
@@ -173,8 +206,28 @@ const Profile: React.FC = () => {
             </View>
 
             <View style={styles.actionsSection}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleFriends}>
+                <Text style={styles.actionButtonText}>Manage Friends</Text>
+              </TouchableOpacity>
+              
               <TouchableOpacity style={styles.actionButton} onPress={handleCompanions}>
                 <Text style={styles.actionButtonText}>View Companions</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleDriverApplication}>
+                <Text style={styles.actionButtonText}>Become a Driver</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleRideHistory}>
+                <Text style={styles.actionButtonText}>Ride History</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleWallet}>
+                <Text style={styles.actionButtonText}>My Wallet</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleSettings}>
+                <Text style={styles.actionButtonText}>Settings & More</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -236,6 +289,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     paddingHorizontal: 20,
     alignItems: 'center',
+    marginTop: 30,
   },
   headerTitle: {
     fontFamily: 'Inter',
@@ -256,8 +310,9 @@ const styles = StyleSheet.create({
     borderColor: '#113a78',
   },
   profileImage: {
-    width: 60,
-    height: 60,
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
   },
   userName: {
     fontFamily: 'Inter',

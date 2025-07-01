@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as Location from 'expo-location';
 import { RideService } from '../services/ride';
 import Navbar from '../components/Navbar';
 
@@ -30,9 +31,11 @@ const JoinRideConfirm: React.FC = () => {
   const { rideId } = route.params || { rideId: '' };
 
   const [pickupAddress, setPickupAddress] = useState<string>('');
+  const [pickupCoordinates, setPickupCoordinates] = useState<{latitude: number, longitude: number} | null>(null);
   const [isGroup, setIsGroup] = useState<boolean>(false);
   const [seatCount, setSeatCount] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLocationLoading, setIsLocationLoading] = useState<boolean>(false);
   const [rideDetails, setRideDetails] = useState<any>(null);
 
   useEffect(() => {
@@ -59,6 +62,73 @@ const JoinRideConfirm: React.FC = () => {
     }
   };
 
+  const getCurrentLocation = async () => {
+    setIsLocationLoading(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to automatically detect your pickup location.',
+          [{ text: 'OK' }]
+        );
+        setIsLocationLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      if (location) {
+        const { latitude, longitude } = location.coords;
+        setPickupCoordinates({ latitude, longitude });
+
+        // Try to get a human-readable address
+        try {
+          const addressResponse = await Location.reverseGeocodeAsync({
+            latitude,
+            longitude,
+          });
+
+          let addressText = 'Current Location';
+
+          if (addressResponse && addressResponse.length > 0) {
+            const address = addressResponse[0];
+            const parts = [
+              address.name,
+              address.streetNumber ? `${address.streetNumber} ${address.street}` : address.street,
+              address.district,
+              address.city,
+              address.postalCode,
+              address.country
+            ].filter(Boolean);
+            addressText = parts.slice(0, 3).join(', ');
+            if (!addressText || addressText.toLowerCase() === 'unnamed road') {
+              addressText = `${address.city || 'Near'}, ${address.region || ''}`.trim().replace(/^,|,$/, '');
+            }
+          } else {
+            addressText = `Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`;
+          }
+
+          setPickupAddress(addressText);
+        } catch (geocodeError) {
+          console.warn('Geocoding failed, using coordinates:', geocodeError);
+          setPickupAddress(`Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      Alert.alert(
+        'Location Error',
+        'Could not determine your current location. Please enter it manually or try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLocationLoading(false);
+    }
+  };
+
   const handleJoinRide = async () => {
     if (!pickupAddress.trim()) {
       Alert.alert('Error', 'Please enter your pickup location');
@@ -67,19 +137,38 @@ const JoinRideConfirm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // In a real app, we would use a geocoding service here
-      // to convert the address to coordinates
-      const mockCoordinates = {
-        latitude: 37.78825,
-        longitude: -122.4324,
-      };
+      let coordinates = pickupCoordinates;
+      
+      // If we don't have coordinates, try to geocode the address
+      if (!coordinates && pickupAddress.trim()) {
+        try {
+          const geocodeResult = await Location.geocodeAsync(pickupAddress);
+          if (geocodeResult.length > 0) {
+            coordinates = {
+              latitude: geocodeResult[0].latitude,
+              longitude: geocodeResult[0].longitude,
+            };
+          }
+        } catch (geocodeError) {
+          console.warn('Geocoding failed:', geocodeError);
+        }
+      }
+      
+      // Use fallback coordinates if geocoding fails
+      if (!coordinates) {
+        coordinates = {
+          latitude: 37.78825,
+          longitude: -122.4324,
+        };
+        console.warn('Using fallback coordinates');
+      }
 
       // Join the ride
       await RideService.joinRide({
         ride_id: rideId,
         pickup_location: {
           address: pickupAddress,
-          coordinates: mockCoordinates,
+          coordinates,
         },
         group_join: isGroup,
         seat_count: seatCount,
@@ -202,14 +291,21 @@ const JoinRideConfirm: React.FC = () => {
           
           <TouchableOpacity 
             style={styles.currentLocationButton}
-            onPress={() => Alert.alert('Coming Soon', 'Location detection feature coming soon')}
+            onPress={getCurrentLocation}
+            disabled={isLocationLoading}
           >
-            <Image
-              source={require('../assets/images/Location Icon.png')}
-              style={styles.locationIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.currentLocationText}>Use current location</Text>
+            {isLocationLoading ? (
+              <ActivityIndicator size="small" color="#ff9020" style={{ marginRight: 5 }} />
+            ) : (
+              <Image
+                source={require('../assets/images/Location Icon.png')}
+                style={styles.locationIcon}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.currentLocationText}>
+              {isLocationLoading ? 'Getting location...' : 'Use current location'}
+            </Text>
           </TouchableOpacity>
         </View>
 

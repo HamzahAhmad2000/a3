@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+// import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 const { width, height } = Dimensions.get('window');
 
@@ -387,7 +387,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         
         {/* Map View */}
         <View style={styles.mapContainer}>
-          <MapView
+          {/* <MapView
             ref={mapRef}
             style={styles.map}
             provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -404,7 +404,19 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                 onDragEnd={(e) => handleMapPress(e)}
               />
             )}
-          </MapView>
+          </MapView> */}
+          
+          <View style={styles.mapPlaceholder}>
+            <Text style={styles.mapPlaceholderText}>🗺️</Text>
+            <Text style={styles.mapPlaceholderTitle}>Location Search</Text>
+            <Text style={styles.mapPlaceholderSubtext}>Use search above to find locations</Text>
+            {markerPosition && (
+              <View style={styles.selectedLocationIndicator}>
+                <Text style={styles.selectedLocationIcon}>✅</Text>
+                <Text style={styles.selectedLocationText}>Location Selected</Text>
+              </View>
+            )}
+          </View>
           
           {loading && (
             <View style={styles.mapLoadingOverlay}>
@@ -562,6 +574,45 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  mapPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 2,
+    borderColor: '#e6effc',
+    borderStyle: 'dashed',
+    margin: 15,
+    borderRadius: 12,
+  },
+  mapPlaceholderText: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  mapPlaceholderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#113a78',
+    marginBottom: 8,
+  },
+  mapPlaceholderSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  selectedLocationIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e6effc',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  selectedLocationIcon: {
+    fontSize: 20,
+    marginRight: 8,
   },
   mapLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,

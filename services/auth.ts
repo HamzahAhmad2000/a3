@@ -30,6 +30,13 @@ export interface ProfileForm {
 export interface RegisterResponse {
   message: string;
   user_id: string;
+  access_token?: string;
+  refresh_token?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 export interface ProfileResponse {
@@ -49,20 +56,28 @@ export const AuthService = {
   async login(data: LoginForm) {
     try {
       const response = await api.post('/auth/login', data);
-      const { access_token, refresh_token, user_id, name } = response.data;
+      const { access_token, refresh_token, user_id, user } = response.data;
       
       // Store tokens with timestamp
       const tokenTimestamp = Date.now();
       await AsyncStorage.setItem('accessToken', access_token);
       await AsyncStorage.setItem('refreshToken', refresh_token);
       await AsyncStorage.setItem('userId', user_id);
-      await AsyncStorage.setItem('userName', name);
+      
+      // Store user information including role
+      const userName = user?.name || 'User';
+      const userRole = user?.role || 'user';
+      await AsyncStorage.setItem('userName', userName);
+      await AsyncStorage.setItem('userRole', userRole);
       await AsyncStorage.setItem('tokenTimestamp', tokenTimestamp.toString());
+      
+      console.log('✅ Login successful - stored user role:', userRole);
       
       return response.data;
     } catch (error) {
       const err = error as any;
       console.error('Login error details:', err.response?.data || err);
+      console.error('Login error:', err);
       
       // Extract meaningful error message
       const errorMessage = err.response?.data?.error || err.message || 'Login failed';
@@ -80,12 +95,30 @@ export const AuthService = {
         email: data.email,
         password: data.password,
         gender: data.gender,
-        dateOfBirth: data.dateOfBirth, // Backend expects this field name
-        phone: data.phone || ''
+        date_of_birth: data.dateOfBirth, // Backend expects date_of_birth
+        phone: data.phone || '',
+        interests: [] // Add default interests array
       };
       
       const response = await api.post('/auth/register', formattedData);
       console.log('Registration response:', response.data);
+      
+      // If registration returns tokens, store them immediately
+      if (response.data.access_token && response.data.refresh_token) {
+        const tokenTimestamp = Date.now();
+        await AsyncStorage.setItem('accessToken', response.data.access_token);
+        await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
+        await AsyncStorage.setItem('userId', response.data.user_id);
+        
+        // Store user information including role
+        const userName = response.data.user?.name || data.name || 'User';
+        const userRole = response.data.user?.role || 'user';
+        await AsyncStorage.setItem('userName', userName);
+        await AsyncStorage.setItem('userRole', userRole);
+        await AsyncStorage.setItem('tokenTimestamp', tokenTimestamp.toString());
+        console.log('✅ Registration tokens stored successfully with role:', userRole);
+      }
+      
       return response.data;
     } catch (error) {
       const err = error as any;
@@ -126,13 +159,19 @@ export const AuthService = {
   },
   
   async logout() {
-    // Clear stored tokens
-    await AsyncStorage.removeItem('accessToken');
-    await AsyncStorage.removeItem('refreshToken');
-    await AsyncStorage.removeItem('userId');
-    await AsyncStorage.removeItem('userName');
-    await AsyncStorage.removeItem('tokenTimestamp');
-    console.log('✅ User logged out - all tokens cleared');
+    try {
+      // Clear stored tokens
+      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.removeItem('refreshToken');
+      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('userName');
+      await AsyncStorage.removeItem('userRole');
+      await AsyncStorage.removeItem('tokenTimestamp');
+      console.log('✅ User logged out - all tokens cleared');
+    } catch (error) {
+      console.error('❌ Error during logout cleanup:', error);
+      // Don't throw error - logout should always succeed
+    }
   },
 
   // Force logout when token expires (called by API interceptor)
@@ -240,10 +279,12 @@ export const AuthService = {
   async getUserInfo() {
     const userId = await AsyncStorage.getItem('userId');
     const userName = await AsyncStorage.getItem('userName');
+    const userRole = await AsyncStorage.getItem('userRole');
     
     return {
       userId,
-      userName
+      userName,
+      userRole: userRole || 'user'
     };
   }
 };

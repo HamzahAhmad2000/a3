@@ -22,66 +22,85 @@ const Navbar: React.FC<NavbarProps> = ({ currentRoute }) => {
     navigation.navigate('Inbox' as never);
   };
 
+  const handleFriendsPress = () => {
+    navigation.navigate('Friends' as never);
+  };
+
   const handleProfilePress = () => {
     navigation.navigate('Profile' as never);
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.rideButton}>
-        <TouchableOpacity onPress={() => navigation.navigate('CreateTripStep1' as never)}>
+      <View style={styles.rectangle}>
+        <TouchableOpacity onPress={handleHomePress} style={styles.iconButton}>
           <Image
-            source={require('../assets/images/Blue Add Rider Nav Bar.png')}
+            source={currentRoute === 'Homepage' 
+              ? require('../assets/images/Blue Home Nav Bar.png')
+              : require('../assets/images/Blue Home Nav Bar.png')
+            }
+            style={[
+              styles.navIcon,
+              currentRoute !== 'Homepage' && styles.inactiveIcon
+            ]}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={handleSearchPress} style={styles.iconButton}>
+          <Image
+            source={currentRoute === 'JoinRide' 
+              ? require('../assets/images/Blue Search Icon.png')
+              : require('../assets/images/Blue Search Icon.png')
+            }
+            style={[
+              styles.navIcon,
+              currentRoute !== 'JoinRide' && styles.inactiveIcon
+            ]}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate('CreateTripStep1' as never)} style={styles.rideButton}>
+          <Image
+            source={require('../assets/images/White Ride Button.png')}
             style={styles.rideButtonIcon}
             resizeMode="contain"
           />
         </TouchableOpacity>
-      </View>
-      <View style={styles.rectangle}>
-        <View style={styles.frame}>
-          <TouchableOpacity onPress={handleHomePress}>
-            <Image
-              source={currentRoute === 'Homepage' 
-                ? require('../assets/images/icon.png')
-                : require('../assets/images/icon.png')
-              }
-              style={styles.navIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleSearchPress}>
-            <Image
-              source={currentRoute === 'JoinRide' 
-                ? require('../assets/images/Blue Search Icon.png')
-                : require('../assets/images/White Search Icon.png')
-              }
-              style={styles.navIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.frame2}>
-          <TouchableOpacity onPress={handleMessagingPress}>
-            <Image
-              source={currentRoute === 'Inbox' || currentRoute === 'Chat'
-                ? require('../assets/images/Blue Messaging Icon.png')
-                : require('../assets/images/Grey Messaging Icon.png')
-              }
-              style={styles.navIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleProfilePress}>
-            <Image
-              source={currentRoute === 'Profile'
-                ? require('../assets/images/Blue Profule icon.png')
-                : require('../assets/images/Grey Profile Icon.png')
-              }
-              style={styles.navIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
+
+        <TouchableOpacity onPress={handleMessagingPress} style={styles.iconButton}>
+          <Image
+            source={currentRoute === 'Inbox' || currentRoute === 'Chat'
+              ? require('../assets/images/Blue Messaging Icon.png')
+              : require('../assets/images/Grey Messaging Icon.png')
+            }
+            style={styles.navIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={handleFriendsPress} style={styles.iconButton}>
+          <Image
+            source={currentRoute === 'Friends'
+              ? require('../assets/images/Peers.png')
+              : require('../assets/images/Peers.png')
+            }
+            style={styles.navIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={handleProfilePress} style={styles.iconButton}>
+          <Image
+            source={currentRoute === 'Profile'
+              ? require('../assets/images/Blue Profule icon.png')
+              : require('../assets/images/Grey Profile Icon.png')
+            }
+            style={styles.navIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -91,59 +110,60 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     width: '100%',
-    height: 102,
+    height: 80,
     bottom: 0,
     left: 0,
     right: 0,
   },
-  rideButton: {
-    position: 'absolute',
-    width: 79,
-    height: 79,
-    top: 14,
-    left: '50%',
-    marginLeft: -39.5,
-    zIndex: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rideButtonIcon: {
-    width: 78.83,
-    height: 78.83,
-  },
   rectangle: {
     position: 'absolute',
     width: '100%',
-    height: '50%',
-    top: '50%',
+    height: '100%',
     backgroundColor: '#fefefe',
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 10,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-  frame: {
-    flexDirection: 'row',
+  iconButton: {
+    padding: 8,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 50,
-    height: '100%',
+    minWidth: 40,
+    minHeight: 40,
   },
-  frame2: {
-    flexDirection: 'row',
+  rideButton: {
+    padding: 4,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 50,
-    height: '100%',
+    width: 44,
+    height: 44,
+    backgroundColor: '#113a78',
+    borderRadius: 22,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 1.5,
+  },
+  rideButtonIcon: {
+    width: 50,
+    height: 50,
   },
   navIcon: {
-    width: 20,
-    height: 20,
-  }
+    width: 28,
+    height: 28,
+  },
+  inactiveIcon: {
+    opacity: 0.6,
+  },
 });
 
 export default Navbar;

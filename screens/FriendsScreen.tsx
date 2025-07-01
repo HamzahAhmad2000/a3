@@ -1,221 +1,51 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  SafeAreaView,
-  FlatList,
   StyleSheet,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
   ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  FlatList,
+  SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { friendsService, Friend, FriendRequest, SearchResult, RideInvitation } from '../services/friends';
+import { friendsService, Friend, FriendRequest, SearchResult, SearchResultWithSimilarity, RideInvitation } from '../services/friends';
 import Navbar from '../components/Navbar';
-import { useAppNavigation } from '../navigationUtils';
 
-const FriendCard: React.FC<{
-  friend: Friend;
-  onMessage: (friend: Friend) => void;
-  onRemove: (friend: Friend) => void;
-}> = ({ friend, onMessage, onRemove }) => {
-  return (
-    <View style={styles.friendCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={require('../assets/images/Blue Profule icon.png')}
-            style={styles.profileImage}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{friend.name}</Text>
-          <Text style={styles.userEmail}>{friend.email}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(friend)}>
-          <Text style={styles.messageButtonText}>Message</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.removeButton} onPress={() => onRemove(friend)}>
-          <Text style={styles.removeButtonText}>Remove</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-const FriendRequestCard: React.FC<{
-  request: FriendRequest;
-  type: 'received' | 'sent';
-  onRespond?: (requestId: string, response: 'accepted' | 'declined') => void;
-}> = ({ request, type, onRespond }) => {
-  const displayName = type === 'received' ? request.sender_name : request.receiver_name;
-  const displayEmail = type === 'received' ? request.sender_email : request.receiver_email;
-
-  return (
-    <View style={styles.requestCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={require('../assets/images/Blue Profule icon.png')}
-            style={styles.profileImage}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.userEmail}>{displayEmail}</Text>
-          <Text style={styles.requestDate}>
-            {type === 'received' ? 'Sent' : 'Requested'} {new Date(request.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-      </View>
-      
-      {type === 'received' && onRespond && (
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={styles.acceptButton} 
-            onPress={() => onRespond(request.id, 'accepted')}
-          >
-            <Text style={styles.acceptButtonText}>Accept</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.declineButton} 
-            onPress={() => onRespond(request.id, 'declined')}
-          >
-            <Text style={styles.declineButtonText}>Decline</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {type === 'sent' && (
-        <View style={styles.buttonContainer}>
-          <Text style={styles.pendingText}>Pending...</Text>
-        </View>
-      )}
-    </View>
-  );
-};
-
-const SearchUserCard: React.FC<{
-  user: SearchResult;
-  onAddFriend: (userId: string) => void;
-}> = ({ user, onAddFriend }) => {
-  return (
-    <View style={styles.searchCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={require('../assets/images/Blue Profule icon.png')}
-            style={styles.profileImage}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => onAddFriend(user.user_id)}
-        >
-          <Text style={styles.addButtonText}>Add Friend</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-const RideInvitationCard: React.FC<{
-  invitation: RideInvitation;
-  onRespond: (invitationId: string, response: 'accepted' | 'declined') => void;
-}> = ({ invitation, onRespond }) => {
-  return (
-    <View style={styles.invitationCard}>
-      <View style={styles.cardContent}>
-        <Text style={styles.inviterName}>{invitation.inviter_name} invited you to a ride</Text>
-        <Text style={styles.rideDetails}>
-          From: {invitation.ride_from} → To: {invitation.ride_to}
-        </Text>
-        <Text style={styles.rideTime}>
-          {invitation.ride_date} at {invitation.ride_time}
-        </Text>
-      </View>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.acceptButton} 
-          onPress={() => onRespond(invitation.id, 'accepted')}
-        >
-          <Text style={styles.acceptButtonText}>Accept</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.declineButton} 
-          onPress={() => onRespond(invitation.id, 'declined')}
-        >
-          <Text style={styles.declineButtonText}>Decline</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+type TabType = 'friends' | 'requests' | 'search' | 'similarity' | 'invitations';
 
 const FriendsScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'search' | 'invitations'>('friends');
+  const navigation = useNavigation();
+  const [activeTab, setActiveTab] = useState<TabType>('friends');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Friends data
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<{ received: FriendRequest[]; sent: FriendRequest[] }>({ received: [], sent: [] });
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [similarityResults, setSimilarityResults] = useState<SearchResultWithSimilarity[]>([]);
   const [rideInvitations, setRideInvitations] = useState<RideInvitation[]>([]);
-  const [searchText, setSearchText] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
   
-  const navigation = useAppNavigation();
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const loadFriends = useCallback(async () => {
-    try {
-      const data = await friendsService.getFriendsList();
-      setFriends(data.friends);
-    } catch (error) {
-      console.error('Error loading friends:', error);
-    }
+  useEffect(() => {
+    loadInitialData();
   }, []);
 
-  const loadFriendRequests = useCallback(async () => {
-    try {
-      const data = await friendsService.getFriendRequests();
-      setFriendRequests({
-        received: data.received_requests,
-        sent: data.sent_requests
-      });
-    } catch (error) {
-      console.error('Error loading friend requests:', error);
+  useEffect(() => {
+    if (activeTab === 'similarity' && similarityResults.length === 0) {
+      loadSimilarityResults();
     }
-  }, []);
+  }, [activeTab]);
 
-  const loadRideInvitations = useCallback(async () => {
-    try {
-      const data = await friendsService.getRideInvitations();
-      setRideInvitations(data.invitations);
-    } catch (error) {
-      console.error('Error loading ride invitations:', error);
-    }
-  }, []);
-
-  const loadData = useCallback(async () => {
-    if (!isRefreshing) setIsLoading(true);
-    
+  const loadInitialData = async () => {
+    setIsLoading(true);
     try {
       await Promise.all([
         loadFriends(),
@@ -223,71 +53,106 @@ const FriendsScreen: React.FC = () => {
         loadRideInvitations()
       ]);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading initial data:', error);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
-  }, [isRefreshing, loadFriends, loadFriendRequests, loadRideInvitations]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadData();
   };
 
-  const handleSearch = async (text: string) => {
-    setSearchText(text);
-    if (text.length < 2) {
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await loadInitialData();
+    setIsRefreshing(false);
+  };
+
+  const loadFriends = async () => {
+    try {
+      const response = await friendsService.getFriendsList();
+      setFriends(response.friends);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
+
+  const loadFriendRequests = async () => {
+    try {
+      const response = await friendsService.getFriendRequests();
+      setFriendRequests({
+        received: response.received_requests,
+        sent: response.sent_requests
+      });
+    } catch (error) {
+      console.error('Error loading friend requests:', error);
+    }
+  };
+
+  const loadRideInvitations = async () => {
+    try {
+      const response = await friendsService.getRideInvitations();
+      setRideInvitations(response.invitations);
+    } catch (error) {
+      console.error('Error loading ride invitations:', error);
+    }
+  };
+
+  const searchUsers = async () => {
+    if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
 
-    setIsSearching(true);
+    setIsLoading(true);
     try {
-      const data = await friendsService.searchUsers(text);
-      setSearchResults(data.results);
+      const response = await friendsService.searchUsers(searchQuery);
+      setSearchResults(response.results);
     } catch (error) {
       console.error('Error searching users:', error);
       Alert.alert('Error', 'Failed to search users');
     } finally {
-      setIsSearching(false);
+      setIsLoading(false);
     }
   };
 
-  const handleSendFriendRequest = async (userId: string) => {
+  const loadSimilarityResults = async () => {
+    setIsLoading(true);
+    try {
+      const response = await friendsService.searchUsersWithSimilarity();
+      setSimilarityResults(response.results);
+    } catch (error) {
+      console.error('Error loading similarity results:', error);
+      Alert.alert('Error', 'Failed to load similarity results');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendFriendRequest = async (userId: string) => {
     try {
       await friendsService.sendFriendRequest(userId);
       Alert.alert('Success', 'Friend request sent!');
-      // Remove from search results
-      setSearchResults(prev => prev.filter(user => user.user_id !== userId));
-      // Reload friend requests to show the sent request
-      loadFriendRequests();
-    } catch (error) {
-      console.error('Error sending friend request:', error);
-      Alert.alert('Error', 'Failed to send friend request');
+      await searchUsers(); // Refresh search results
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send friend request');
     }
   };
 
-  const handleRespondToFriendRequest = async (requestId: string, response: 'accepted' | 'declined') => {
+  const respondToFriendRequest = async (requestId: string, response: 'accepted' | 'declined') => {
     try {
       await friendsService.respondToFriendRequest(requestId, response);
       Alert.alert('Success', `Friend request ${response}!`);
-      // Reload data to reflect changes
-      loadData();
-    } catch (error) {
-      console.error('Error responding to friend request:', error);
-      Alert.alert('Error', `Failed to ${response} friend request`);
+      await loadFriendRequests();
+      if (response === 'accepted') {
+        await loadFriends();
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to respond to friend request');
     }
   };
 
-  const handleRemoveFriend = (friend: Friend) => {
+  const removeFriend = async (friendId: string) => {
     Alert.alert(
       'Remove Friend',
-      `Are you sure you want to remove ${friend.name} from your friends?`,
+      'Are you sure you want to remove this friend?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -295,12 +160,11 @@ const FriendsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await friendsService.removeFriend(friend.user_id);
+              await friendsService.removeFriend(friendId);
               Alert.alert('Success', 'Friend removed');
-              loadFriends();
-            } catch (error) {
-              console.error('Error removing friend:', error);
-              Alert.alert('Error', 'Failed to remove friend');
+              await loadFriends();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to remove friend');
             }
           }
         }
@@ -308,129 +172,261 @@ const FriendsScreen: React.FC = () => {
     );
   };
 
-  const handleMessageFriend = (friend: Friend) => {
-    navigation.navigate('Chat', { 
-      userId: friend.user_id, 
-      name: friend.name 
-    });
-  };
-
-  const handleRespondToRideInvitation = async (invitationId: string, response: 'accepted' | 'declined') => {
+  const respondToRideInvitation = async (invitationId: string, response: 'accepted' | 'declined') => {
     try {
       await friendsService.respondToRideInvitation(invitationId, response);
       Alert.alert('Success', `Ride invitation ${response}!`);
-      loadRideInvitations();
-    } catch (error) {
-      console.error('Error responding to ride invitation:', error);
-      Alert.alert('Error', `Failed to ${response} ride invitation`);
+      await loadRideInvitations();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to respond to ride invitation');
     }
   };
 
-  const renderTabContent = () => {
-    if (isLoading && !isRefreshing) {
-      return (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#113a78" />
+  const renderTabButton = (tab: TabType, title: string, badge?: number) => (
+    <TouchableOpacity
+      style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
+      onPress={() => setActiveTab(tab)}
+    >
+      <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
+        {title}
+      </Text>
+      {badge !== undefined && badge > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge}</Text>
         </View>
-      );
-    }
+      )}
+    </TouchableOpacity>
+  );
 
+  const renderFriend = ({ item }: { item: Friend }) => (
+    <View style={styles.itemCard}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemEmail}>{item.email}</Text>
+        <Text style={styles.itemDate}>Friends since: {new Date(item.created_at).toLocaleDateString()}</Text>
+      </View>
+      <View style={styles.itemActions}>
+        <TouchableOpacity
+          style={styles.messageButton}
+          onPress={() => navigation.navigate('Chat' as never, { userId: item.user_id, name: item.name })}
+        >
+          <Text style={styles.messageButtonText}>Message</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.removeButton}
+          onPress={() => removeFriend(item.friendship_id)}
+        >
+          <Text style={styles.removeButtonText}>Remove</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderFriendRequest = ({ item }: { item: FriendRequest }) => (
+    <View style={styles.itemCard}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.sender_name || item.receiver_name}</Text>
+        <Text style={styles.itemEmail}>{item.sender_email || item.receiver_email}</Text>
+        <Text style={styles.itemDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+      </View>
+      {item.sender_id && (
+        <View style={styles.itemActions}>
+          <TouchableOpacity
+            style={styles.acceptButton}
+            onPress={() => respondToFriendRequest(item.id, 'accepted')}
+          >
+            <Text style={styles.acceptButtonText}>Accept</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.declineButton}
+            onPress={() => respondToFriendRequest(item.id, 'declined')}
+          >
+            <Text style={styles.declineButtonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderSearchResult = ({ item }: { item: SearchResult }) => (
+    <View style={styles.itemCard}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemEmail}>{item.email}</Text>
+      </View>
+      <View style={styles.itemActions}>
+        {item.can_add ? (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => sendFriendRequest(item.user_id)}
+          >
+            <Text style={styles.addButtonText}>Add Friend</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.cannotAddText}>Already friends or request sent</Text>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderSimilarityResult = ({ item }: { item: SearchResultWithSimilarity }) => (
+    <View style={styles.itemCard}>
+      <View style={styles.itemInfo}>
+        <View style={styles.nameScoreContainer}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <View style={[styles.scoreContainer, { backgroundColor: getScoreColor(item.likeness_score) }]}>
+            <Text style={styles.scoreText}>{item.likeness_score}</Text>
+          </View>
+        </View>
+        <Text style={styles.itemEmail}>{item.email}</Text>
+        {item.likes && (
+          <Text style={styles.preferencesText}>
+            <Text style={styles.preferencesLabel}>Likes: </Text>
+            {item.likes}
+          </Text>
+        )}
+        {item.dislikes && (
+          <Text style={styles.preferencesText}>
+            <Text style={styles.preferencesLabel}>Dislikes: </Text>
+            {item.dislikes}
+          </Text>
+        )}
+      </View>
+      <View style={styles.itemActions}>
+        {item.can_add ? (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => sendFriendRequest(item.user_id)}
+          >
+            <Text style={styles.addButtonText}>Add Friend</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.cannotAddText}>Already friends or request sent</Text>
+        )}
+      </View>
+    </View>
+  );
+
+  const getScoreColor = (score: number): string => {
+    if (score >= 4.5) return '#4CAF50'; // Green
+    if (score >= 3.5) return '#8BC34A'; // Light Green
+    if (score >= 2.5) return '#FFC107'; // Yellow
+    if (score >= 1.5) return '#FF9800'; // Orange
+    return '#F44336'; // Red
+  };
+
+  const renderRideInvitation = ({ item }: { item: RideInvitation }) => (
+    <View style={styles.itemCard}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>Ride from {item.inviter_name}</Text>
+        <Text style={styles.itemEmail}>{item.ride_from} → {item.ride_to}</Text>
+        <Text style={styles.itemDate}>{item.ride_date} at {item.ride_time}</Text>
+      </View>
+      <View style={styles.itemActions}>
+        <TouchableOpacity
+          style={styles.acceptButton}
+          onPress={() => respondToRideInvitation(item.id, 'accepted')}
+        >
+          <Text style={styles.acceptButtonText}>Accept</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.declineButton}
+          onPress={() => respondToRideInvitation(item.id, 'declined')}
+        >
+          <Text style={styles.declineButtonText}>Decline</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderTabContent = () => {
     switch (activeTab) {
       case 'friends':
         return (
           <FlatList
             data={friends}
-            renderItem={({ item }) => (
-              <FriendCard
-                friend={item}
-                onMessage={handleMessageFriend}
-                onRemove={handleRemoveFriend}
-              />
-            )}
+            renderItem={renderFriend}
             keyExtractor={(item) => item.friendship_id}
+            showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No friends yet</Text>
-                <Text style={styles.emptySubtext}>Search for users to add as friends</Text>
-              </View>
+              <Text style={styles.emptyText}>No friends yet. Start by searching for users!</Text>
             }
           />
         );
 
       case 'requests':
+        const allRequests = [...friendRequests.received, ...friendRequests.sent];
         return (
-          <ScrollView
+          <FlatList
+            data={allRequests}
+            renderItem={renderFriendRequest}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
-          >
-            <Text style={styles.sectionTitle}>Received Requests</Text>
-            {friendRequests.received.length > 0 ? (
-              friendRequests.received.map((request) => (
-                <FriendRequestCard
-                  key={request.id}
-                  request={request}
-                  type="received"
-                  onRespond={handleRespondToFriendRequest}
-                />
-              ))
-            ) : (
-              <Text style={styles.noRequestsText}>No pending requests</Text>
-            )}
-
-            <Text style={styles.sectionTitle}>Sent Requests</Text>
-            {friendRequests.sent.length > 0 ? (
-              friendRequests.sent.map((request) => (
-                <FriendRequestCard
-                  key={request.id}
-                  request={request}
-                  type="sent"
-                />
-              ))
-            ) : (
-              <Text style={styles.noRequestsText}>No sent requests</Text>
-            )}
-          </ScrollView>
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No friend requests</Text>
+            }
+          />
         );
 
       case 'search':
         return (
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search users by name or email..."
-              placeholderTextColor="#aaa"
-              value={searchText}
-              onChangeText={handleSearch}
-            />
-            
-            {isSearching ? (
-              <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#113a78" />
-              </View>
-            ) : (
-              <FlatList
-                data={searchResults}
-                renderItem={({ item }) => (
-                  <SearchUserCard
-                    user={item}
-                    onAddFriend={handleSendFriendRequest}
-                  />
-                )}
-                keyExtractor={(item) => item.user_id}
-                ListEmptyComponent={
-                  searchText.length >= 2 ? (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No users found</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>Search for users</Text>
-                      <Text style={styles.emptySubtext}>Type at least 2 characters to search</Text>
-                    </View>
-                  )
-                }
+          <View style={{ flex: 1 }}>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search users by name or email..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={searchUsers}
               />
-            )}
+              <TouchableOpacity style={styles.searchButton} onPress={searchUsers}>
+                <Text style={styles.searchButtonText}>Search</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={searchResults}
+              renderItem={renderSearchResult}
+              keyExtractor={(item) => item.user_id}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+              ListEmptyComponent={
+                searchQuery ? (
+                  <Text style={styles.emptyText}>No users found</Text>
+                ) : (
+                  <Text style={styles.emptyText}>Enter a name or email to search for users</Text>
+                )
+              }
+            />
+          </View>
+        );
+
+      case 'similarity':
+        return (
+          <View style={{ flex: 1 }}>
+            <View style={styles.similarityHeader}>
+              <View style={styles.similarityHeaderContent}>
+                <Text style={styles.similarityTitle}>Find people with similar interests</Text>
+                <Text style={styles.similaritySubtitle}>Scores based on your likes and dislikes (1-5 scale)</Text>
+              </View>
+              <TouchableOpacity style={styles.refreshButton} onPress={loadSimilarityResults}>
+                <Text style={styles.refreshButtonText}>Refresh</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={similarityResults}
+              renderItem={renderSimilarityResult}
+              keyExtractor={(item) => item.user_id}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={loadSimilarityResults} />}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No similar users found</Text>
+                  <Text style={styles.emptySubtext}>Make sure you have filled out your likes and dislikes in your profile</Text>
+                </View>
+              }
+            />
           </View>
         );
 
@@ -438,19 +434,12 @@ const FriendsScreen: React.FC = () => {
         return (
           <FlatList
             data={rideInvitations}
-            renderItem={({ item }) => (
-              <RideInvitationCard
-                invitation={item}
-                onRespond={handleRespondToRideInvitation}
-              />
-            )}
+            renderItem={renderRideInvitation}
             keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No ride invitations</Text>
-                <Text style={styles.emptySubtext}>Friends can invite you to rides</Text>
-              </View>
+              <Text style={styles.emptyText}>No ride invitations</Text>
             }
           />
         );
@@ -463,62 +452,35 @@ const FriendsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>‹ Back</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Friends</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
-          onPress={() => setActiveTab('friends')}
-        >
-          <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-            Friends
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-          onPress={() => setActiveTab('requests')}
-        >
-          <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-            Requests
-          </Text>
-          {(friendRequests.received.length > 0) && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{friendRequests.received.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'search' && styles.activeTab]}
-          onPress={() => setActiveTab('search')}
-        >
-          <Text style={[styles.tabText, activeTab === 'search' && styles.activeTabText]}>
-            Search
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'invitations' && styles.activeTab]}
-          onPress={() => setActiveTab('invitations')}
-        >
-          <Text style={[styles.tabText, activeTab === 'invitations' && styles.activeTabText]}>
-            Invites
-          </Text>
-          {rideInvitations.length > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{rideInvitations.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {renderTabButton('friends', 'Friends', friends.length)}
+        {renderTabButton('requests', 'Requests', friendRequests.received.length)}
+        {renderTabButton('search', 'Search')}
+        {renderTabButton('similarity', 'Similarity')}
+        {renderTabButton('invitations', 'Invitations', rideInvitations.length)}
       </View>
 
       <View style={styles.content}>
-        {renderTabContent()}
+        {isLoading && !isRefreshing ? (
+          <ActivityIndicator size="large" color="#113a78" style={styles.loader} />
+        ) : (
+          <View style={styles.tabContentContainer}>
+            {renderTabContent()}
+          </View>
+        )}
       </View>
 
-      <Navbar />
+      <Navbar currentRoute="Friends" />
     </SafeAreaView>
   );
 };
@@ -526,288 +488,299 @@ const FriendsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fefefe',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
+    backgroundColor: '#fefefe',
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 30,
+  },
+  backButton: {
+    padding: 5,
+  },
+  backButtonText: {
+    fontSize: 18,
+    color: '#113a78',
+    fontFamily: 'Inter',
+    fontWeight: '600',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#113a78',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 50,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 10,
   },
-  tab: {
+  tabButton: {
     flex: 1,
-    paddingVertical: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'center',
-    position: 'relative',
   },
-  activeTab: {
-    borderBottomWidth: 3,
+  activeTabButton: {
+    borderBottomWidth: 2,
     borderBottomColor: '#113a78',
   },
-  tabText: {
+  tabButtonText: {
     fontSize: 14,
+    color: '#666666',
     fontWeight: '500',
-    color: '#6c757d',
+    fontFamily: 'Inter',
   },
-  activeTabText: {
+  activeTabButtonText: {
     color: '#113a78',
     fontWeight: 'bold',
+    fontFamily: 'Inter',
   },
   badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#dc3545',
+    backgroundColor: '#ff4444',
     borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
     minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 5,
   },
   badgeText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: 'bold',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
-  loaderContainer: {
+  tabContentContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 15,
   },
-  friendCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  loader: {
+    marginTop: 50,
   },
-  requestCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  searchCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  invitationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardHeader: {
+  searchContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
+    gap: 10,
   },
-  cardContent: {
-    marginBottom: 12,
-  },
-  profileImageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#e9ecef',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  profileImage: {
-    width: 30,
-    height: 30,
-  },
-  userInfo: {
+  searchInput: {
     flex: 1,
-  },
-  userName: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
+  },
+  searchButton: {
+    backgroundColor: '#113a78',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  searchButtonText: {
+    color: '#ffffff',
     fontWeight: 'bold',
-    color: '#212529',
-    marginBottom: 4,
+    fontFamily: 'Inter',
   },
-  userEmail: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
-  requestDate: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginTop: 4,
-  },
-  inviterName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#212529',
-    marginBottom: 8,
-  },
-  rideDetails: {
-    fontSize: 14,
-    color: '#495057',
-    marginBottom: 4,
-  },
-  rideTime: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
-  buttonContainer: {
+  itemCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  messageButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  itemInfo: {
     flex: 1,
-    marginRight: 8,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 4,
+    fontFamily: 'Inter',
+  },
+  itemEmail: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 4,
+    fontFamily: 'Inter',
+  },
+  itemDate: {
+    fontSize: 12,
+    color: '#999999',
+    fontFamily: 'Inter',
+  },
+  itemActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  messageButton: {
+    backgroundColor: '#113a78',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   messageButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center',
+    fontFamily: 'Inter',
   },
   removeButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flex: 1,
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   removeButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center',
+    fontFamily: 'Inter',
   },
   acceptButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   acceptButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center',
+    fontFamily: 'Inter',
   },
   declineButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flex: 1,
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   declineButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center',
+    fontFamily: 'Inter',
   },
   addButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: '#113a78',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: 'bold',
+    fontFamily: 'Inter',
   },
-  pendingText: {
-    color: '#6c757d',
-    fontSize: 14,
+  cannotAddText: {
+    fontSize: 12,
+    color: '#999999',
     fontStyle: 'italic',
   },
-  searchContainer: {
-    flex: 1,
-  },
-  searchInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  emptyText: {
+    textAlign: 'center',
+    color: '#666666',
     fontSize: 16,
-    marginVertical: 16,
+    marginTop: 50,
+    fontFamily: 'Inter',
   },
-  sectionTitle: {
+  nameScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scoreContainer: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginLeft: 5,
+  },
+  scoreText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  preferencesText: {
+    fontSize: 12,
+    color: '#666666',
+    fontFamily: 'Inter',
+  },
+  preferencesLabel: {
+    fontWeight: 'bold',
+  },
+  similarityHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  similarityHeaderContent: {
+    flex: 1,
+    paddingRight: 15,
+  },
+  similarityTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#113a78',
-    marginTop: 20,
-    marginBottom: 12,
+    fontFamily: 'Inter',
+    marginBottom: 5,
   },
-  noRequestsText: {
-    color: '#6c757d',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginVertical: 20,
+  similaritySubtitle: {
+    fontSize: 12,
+    color: '#666666',
+    fontFamily: 'Inter',
+  },
+  refreshButton: {
+    backgroundColor: '#113a78',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  refreshButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontFamily: 'Inter',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6c757d',
-    marginBottom: 8,
   },
   emptySubtext: {
+    color: '#666666',
     fontSize: 14,
-    color: '#adb5bd',
+    fontFamily: 'Inter',
     textAlign: 'center',
   },
 });
 
-export default FriendsScreen; 
+export default FriendsScreen;

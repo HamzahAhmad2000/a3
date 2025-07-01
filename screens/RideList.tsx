@@ -183,6 +183,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 15,
     alignItems: 'center',
+    marginTop: 30,
   },
   title: {
     fontFamily: 'Inter',

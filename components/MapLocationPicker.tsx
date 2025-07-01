@@ -10,10 +10,12 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
+  Dimensions,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
-import { Image } from 'react-native';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LocationCoordinates {
   latitude: number;
@@ -37,16 +39,22 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   initialAddress,
   placeholderText = 'Search location...',
 }) => {
-  const [location, setLocation] = useState<LocationCoordinates | null>(initialLocation || null);
+  const [location, setLocation] = useState<LocationCoordinates | null>(
+    initialLocation || {
+      latitude: 37.4221,
+      longitude: -122.0841
+    }
+  );
   const [address, setAddress] = useState<string>(initialAddress || '');
   const [searchText, setSearchText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   
-  const mapRef = useRef<MapView>(null);
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
-    if (isVisible && !location) {
+    if (isVisible && !initialLocation) {
       getCurrentLocation();
     }
   }, [isVisible]);
@@ -75,6 +83,14 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       
       setLocation(newLocation);
       await reverseGeocode(newLocation);
+      
+      // Update map location
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'updateLocation',
+          location: newLocation
+        }));
+      }
     } catch (err) {
       setError('Failed to get current location');
       console.error('Error getting location:', err);
@@ -124,15 +140,15 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
         };
         
         setLocation(newLocation);
-        
-        // Move map to the location
-        mapRef.current?.animateToRegion({
-          ...newLocation,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }, 1000);
-        
         await reverseGeocode(newLocation);
+        
+        // Update map location
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'updateLocation',
+            location: newLocation
+          }));
+        }
       } else {
         setError('Location not found');
       }
@@ -144,18 +160,124 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     }
   };
 
-  const handleMapPress = async (e: any) => {
-    const coordinates = e.nativeEvent.coordinate;
-    setLocation(coordinates);
-    await reverseGeocode(coordinates);
-  };
-
   const handleSelectLocation = () => {
     if (location && address) {
       onLocationSelect(address, location);
       onClose();
     }
   };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      
+      if (data.type === 'mapClick') {
+        const newLocation = {
+          latitude: data.lat,
+          longitude: data.lng
+        };
+        setLocation(newLocation);
+        reverseGeocode(newLocation);
+      } else if (data.type === 'mapLoaded') {
+        setMapLoaded(true);
+      }
+    } catch (err) {
+      console.error('Error parsing WebView message:', err);
+    }
+  };
+
+  // Create HTML content for the map
+  const mapHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Map</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>
+            body { margin: 0; padding: 0; }
+            #map { height: 100vh; width: 100vw; }
+            .custom-marker {
+                background-color: #ff4444;
+                border: 3px solid white;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            let map;
+            let marker;
+            
+            function initMap() {
+                map = L.map('map').setView([${location?.latitude || 37.4221}, ${location?.longitude || -122.0841}], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                // Add initial marker
+                marker = L.circleMarker([${location?.latitude || 37.4221}, ${location?.longitude || -122.0841}], {
+                    color: '#fff',
+                    fillColor: '#ff4444',
+                    fillOpacity: 1,
+                    radius: 8,
+                    weight: 3
+                }).addTo(map);
+                
+                // Handle map clicks
+                map.on('click', function(e) {
+                    const lat = e.latlng.lat;
+                    const lng = e.latlng.lng;
+                    
+                    // Update marker position
+                    marker.setLatLng([lat, lng]);
+                    
+                    // Send location to React Native
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'mapClick',
+                        lat: lat,
+                        lng: lng
+                    }));
+                });
+                
+                // Notify React Native that map is loaded
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'mapLoaded'
+                }));
+            }
+            
+            // Listen for location updates from React Native
+            document.addEventListener('message', function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'updateLocation' && map && marker) {
+                    const newLatLng = [data.location.latitude, data.location.longitude];
+                    map.setView(newLatLng, 13);
+                    marker.setLatLng(newLatLng);
+                }
+            });
+            
+            window.addEventListener('message', function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'updateLocation' && map && marker) {
+                    const newLatLng = [data.location.latitude, data.location.longitude];
+                    map.setView(newLatLng, 13);
+                    marker.setLatLng(newLatLng);
+                }
+            });
+            
+            // Initialize map when page loads
+            initMap();
+        </script>
+    </body>
+    </html>
+  `;
 
   return (
     <Modal
@@ -170,11 +292,7 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={onClose}>
-            <Image
-              source={require('../assets/images/White Back icon.png')}
-              style={styles.backIcon}
-              resizeMode="contain"
-            />
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Location</Text>
         </View>
@@ -199,36 +317,40 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-        {isLoading && !location ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#113a78" />
-          </View>
-        ) : (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={location ? {
-              ...location,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            } : undefined}
-            onPress={handleMapPress}
-            showsUserLocation
-          >
-            {location && (
-              <Marker
-                coordinate={location}
-                title="Selected Location"
-                description={address}
-              />
-            )}
-          </MapView>
-        )}
+        <View style={styles.mapContainer}>
+          {!mapLoaded && (
+            <View style={styles.mapLoadingOverlay}>
+              <ActivityIndicator size="large" color="#113a78" />
+              <Text style={styles.loadingText}>Loading map...</Text>
+            </View>
+          )}
+          
+          <WebView
+            ref={webViewRef}
+            source={{ html: mapHTML }}
+            style={styles.webView}
+            onMessage={handleWebViewMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={false}
+            scalesPageToFit={true}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            onLoad={() => setMapLoaded(true)}
+          />
+          
+          {location && (
+            <View style={styles.coordinatesOverlay}>
+              <Text style={styles.coordinatesText}>
+                📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.addressText} numberOfLines={2}>
-            {address || 'Drop a pin or search for a location'}
+            {address || 'Tap on the map or search for a location'}
           </Text>
           
           <View style={styles.buttonContainer}>
@@ -237,11 +359,7 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
               onPress={getCurrentLocation}
               disabled={isLoading}
             >
-              <Image
-                source={require('../assets/images/Location Icon.png')}
-                style={styles.locationIcon}
-                resizeMode="contain"
-              />
+              <Text style={styles.locationIcon}>📍</Text>
               <Text style={styles.currentLocationText}>Current Location</Text>
             </TouchableOpacity>
             
@@ -275,15 +393,14 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
-  backIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#fff',
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
   headerTitle: {
     color: '#fff',
     fontSize: 18,
-    fontFamily: 'Inter',
     fontWeight: '600',
     marginLeft: 15,
   },
@@ -302,7 +419,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     marginRight: 10,
-    fontFamily: 'Inter',
   },
   searchButton: {
     backgroundColor: '#113a78',
@@ -313,34 +429,63 @@ const styles = StyleSheet.create({
   },
   searchButtonText: {
     color: '#ffffff',
-    fontFamily: 'Inter',
     fontWeight: '500',
   },
   errorText: {
     color: 'red',
     padding: 10,
     textAlign: 'center',
-    fontFamily: 'Inter',
   },
-  loadingContainer: {
+  mapContainer: {
     flex: 1,
+    position: 'relative',
+  },
+  webView: {
+    flex: 1,
+  },
+  mapLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
   },
-  map: {
-    flex: 1,
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#113a78',
+  },
+  coordinatesOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(17, 58, 120, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    zIndex: 100,
+  },
+  coordinatesText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   footer: {
-    backgroundColor: '#ffffff',
-    padding: 15,
+    backgroundColor: '#fff',
+    padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#e6e6e6',
   },
   addressText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#113a78',
+    fontSize: 16,
+    color: '#333',
     marginBottom: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -350,32 +495,38 @@ const styles = StyleSheet.create({
   currentLocationButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
   },
   locationIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 5,
+    fontSize: 16,
+    marginRight: 8,
   },
   currentLocationText: {
-    fontFamily: 'Inter',
     fontSize: 14,
-    color: '#ff9020',
+    color: '#113a78',
+    fontWeight: '500',
   },
   selectButton: {
     backgroundColor: '#113a78',
-    paddingVertical: 12,
     paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
+    flex: 1,
+    marginLeft: 10,
+    alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#cccccc',
+    backgroundColor: '#ccc',
   },
   selectButtonText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
   },
 });
 

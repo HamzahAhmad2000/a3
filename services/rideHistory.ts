@@ -51,10 +51,29 @@ export interface RateRideResponse {
   success: boolean;
 }
 
+export interface RealTimeRating {
+  rating: number;
+  feedback?: string;
+  rating_type: 'driver' | 'passenger';
+}
+
+export interface RealTimeRatingResponse {
+  id: string;
+  rating: number;
+  feedback: string;
+  rating_type: string;
+  rater: {
+    id: string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export const RideHistoryService = {
   async getRideHistory(filters: RideHistoryFilterOptions = {}): Promise<RideHistoryItem[]> {
     try {
-      const response = await api.get('/rides/history', { params: filters });
+      const response = await api.get('/ride-history/history', { params: filters });
       return response.data;
     } catch (error) {
       console.error('Error fetching ride history:', error);
@@ -81,6 +100,26 @@ export const RideHistoryService = {
       return response.data;
     } catch (error) {
       console.error('Error rating ride:', error);
+      throw error;
+    }
+  },
+
+  async rateActiveRide(rideId: string, data: RealTimeRating): Promise<RateRideResponse> {
+    try {
+      const response = await api.post(`/ride-history/${rideId}/rate-active`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error rating active ride:', error);
+      throw error;
+    }
+  },
+
+  async getRealTimeRatings(rideId: string): Promise<{ success: boolean; ratings: RealTimeRatingResponse[] }> {
+    try {
+      const response = await api.get(`/ride-history/${rideId}/real-time-ratings`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching real-time ratings:', error);
       throw error;
     }
   }

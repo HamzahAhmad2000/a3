@@ -185,14 +185,21 @@ const CrossPlatformMapPicker: React.FC<MapLocationPickerProps> = ({
             <ActivityIndicator size="large" color="#113a78" />
           ) : (
             <>
+              <View style={styles.mapIconContainer}>
+                <Text style={styles.mapIcon}>🗺️</Text>
+                <Text style={styles.mapTitle}>Location Search</Text>
+              </View>
               <Text style={styles.placeholderText}>
                 {location ? 
-                  `Selected location (${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)})` : 
-                  'Search for a location to select it'}
+                  `✅ Location selected` : 
+                  'Use the search bar above to find a location'}
               </Text>
               {location && (
-                <View style={styles.locationMarker}>
+                <View style={styles.locationInfo}>
                   <Text style={styles.markerText}>📍</Text>
+                  <Text style={styles.coordinatesText}>
+                    {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                  </Text>
                 </View>
               )}
             </>
@@ -291,25 +298,55 @@ const styles = StyleSheet.create({
   },
   mapPlaceholder: {
     flex: 1,
-    backgroundColor: '#e6effc',
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 2,
+    borderColor: '#e6effc',
+    borderStyle: 'dashed',
+    margin: 15,
+    borderRadius: 12,
+  },
+  mapIconContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  mapIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  mapTitle: {
+    fontFamily: 'Inter',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#113a78',
+    marginBottom: 8,
   },
   placeholderText: {
     fontFamily: 'Inter',
-    fontSize: 16,
-    color: '#113a78',
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  locationMarker: {
-    position: 'absolute',
-    justifyContent: 'center',
+  locationInfo: {
     alignItems: 'center',
+    backgroundColor: '#e6effc',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   markerText: {
-    fontSize: 40,
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  coordinatesText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#113a78',
+    fontWeight: '500',
   },
   footer: {
     backgroundColor: '#ffffff',

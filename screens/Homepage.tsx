@@ -20,6 +20,7 @@ import { AuthService } from '../services/auth';
 import { UserService } from '../services/user';
 import { RideService } from '../services/ride';
 import Navbar from '../components/Navbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get the device screen width for responsive sizing
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -56,7 +57,10 @@ const DashboardCardButton = ({
 
 // Available Rides Component
 const AvailableRidesSection = ({ rides, onPressRide }: any) => {
-  if (rides.length === 0) {
+  // Defensive programming: ensure rides is always an array
+  const safeRides = Array.isArray(rides) ? rides : [];
+  
+  if (safeRides.length === 0) {
     return (
       <View style={styles.emptyRidesContainer}>
         <Text style={styles.emptyRidesText}>No available rides in your area</Text>
@@ -67,7 +71,7 @@ const AvailableRidesSection = ({ rides, onPressRide }: any) => {
   return (
     <View style={styles.availableRidesContainer}>
       <FlatList
-        data={rides.slice(0, 3)} // Show only first 3 rides
+        data={safeRides.slice(0, 3)} // Show only first 3 rides
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <TouchableOpacity 
@@ -76,7 +80,7 @@ const AvailableRidesSection = ({ rides, onPressRide }: any) => {
           >
             <View style={styles.rideHeader}>
               <View style={styles.driverInfo}>
-                <Text style={styles.driverName}>{item.creator_name}</Text>
+                <Text style={styles.driverName}>{item.creator_info?.name || item.creator_name || 'Unknown Driver'}</Text>
                 <Text style={styles.carType}>{item.car_type}</Text>
               </View>
               <View style={styles.ratingContainer}>
@@ -97,7 +101,7 @@ const AvailableRidesSection = ({ rides, onPressRide }: any) => {
                   resizeMode="contain"
                 />
                 <Text style={styles.detailText} numberOfLines={1}>
-                  {item.location.address}
+                  {item.pickup_location?.address || item.location?.address || 'Location not available'}
                 </Text>
               </View>
             </View>
@@ -127,6 +131,7 @@ const AvailableRidesSection = ({ rides, onPressRide }: any) => {
 const Homepage: React.FC = () => {
   const navigation = useAppNavigation();
   const [userName, setUserName] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('user');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchText, setSearchText] = useState<string>('');
   const [availableRides, setAvailableRides] = useState<any[]>([]);
@@ -136,21 +141,42 @@ const Homepage: React.FC = () => {
     // Load user information when component mounts
     const fetchUserInfo = async () => {
       try {
-        const { userName } = await AuthService.getUserInfo();
+        const { userName, userRole } = await AuthService.getUserInfo();
         if (userName) {
           setUserName(userName);
-        } else {
-          // If no user name in storage, try to fetch from API
+        }
+        if (userRole) {
+          setUserRole(userRole);
+          console.log('✅ User role from AuthService:', userRole);
+        }
+        
+        // Fetch user profile to get additional information and verify role
+        try {
           const profile = await UserService.getProfile();
-          if (profile && profile.name) {
-            setUserName(profile.name);
-          } else {
+          if (profile) {
+            if (profile.name && !userName) {
+              setUserName(profile.name);
+            }
+            // Update role if profile has a different role (backend is source of truth)
+            if (profile.role && profile.role !== userRole) {
+              setUserRole(profile.role);
+              // Update stored role in AsyncStorage
+              await AsyncStorage.setItem('userRole', profile.role);
+              console.log('✅ Updated user role from profile:', profile.role);
+            }
+          }
+        } catch (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          // If profile fetch fails, still set default values
+          if (!userName) {
             setUserName('User');
           }
+          // Keep the role from AuthService if profile fetch fails
         }
       } catch (error) {
         console.error('Error fetching user info:', error);
         setUserName('User');
+        setUserRole('user');
       } finally {
         setIsLoading(false);
       }
@@ -164,10 +190,13 @@ const Homepage: React.FC = () => {
     setIsLoadingRides(true);
     try {
       // Get rides in the user's sector (G8 by default)
-      const rides = await RideService.getAvailableRides('G8');
-      setAvailableRides(rides);
+      const response = await RideService.getAvailableRides('G8');
+      setAvailableRides(response.rides || []); // Extract rides array from response
     } catch (error) {
-      console.error('Error fetching available rides:', error);
+      // Error is already handled by the service layer with fallback data
+      // Just log for development and continue with whatever data we received
+      console.log('📦 Using fallback ride data');
+      setAvailableRides([]); // Set empty array as final fallback
     } finally {
       setIsLoadingRides(false);
     }
@@ -195,6 +224,26 @@ const Homepage: React.FC = () => {
     navigation.navigate('CreateTripStep1' as never);
   };
 
+  const handleDriverApplicationPress = () => {
+    navigation.navigate('DriverApplication' as never);
+  };
+
+  const handleFriendsPress = () => {
+    navigation.navigate('Friends' as never);
+  };
+
+  const handleEmergencyPress = () => {
+    navigation.navigate('Emergency' as never);
+  };
+
+  const handleAdminDashboardPress = () => {
+    navigation.navigate('AdminDashboard' as never);
+  };
+
+  const handleSettingsPress = () => {
+    navigation.navigate('Settings' as never);
+  };
+
   const handleRidePress = (ride: any) => {
     if (ride === 'viewAll') {
       navigation.navigate('JoinRide');
@@ -216,10 +265,17 @@ const Homepage: React.FC = () => {
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         <View style={styles.appContainer}>
           {/* Greetings */}
-          <Text style={styles.greeting}>Good Morning, {userName}</Text>
-          <Text style={styles.subGreeting}>
-            Hope you have a nice journey today.
-          </Text>
+          <View style={styles.headerRow}>
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greeting}>Good Morning, {userName}</Text>
+              <Text style={styles.subGreeting}>
+                Hope you have a nice journey today.
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.settingsButton} onPress={handleSettingsPress}>
+              <Text style={styles.settingsButtonText}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
@@ -290,6 +346,36 @@ const Homepage: React.FC = () => {
                   onPress={handleReportPress}
                 />
               </View>
+              <View style={styles.cardsRow}>
+                <DashboardCardButton
+                  backgroundColor="#4CAF50"
+                  title="Friends"
+                  iconSource={require('../assets/images/White Search Icon.png')}
+                  onPress={handleFriendsPress}
+                />
+                <DashboardCardButton
+                  backgroundColor="#FF9800"
+                  title="Become Driver"
+                  iconSource={require('../assets/images/White Ride Button.png')}
+                  onPress={handleDriverApplicationPress}
+                />
+              </View>
+              <View style={styles.cardsRow}>
+                <DashboardCardButton
+                  backgroundColor="#9C27B0"
+                  title="Emergency"
+                  iconSource={require('../assets/images/White Report Icon.png')}
+                  onPress={handleEmergencyPress}
+                />
+                {userRole === 'admin' && (
+                  <DashboardCardButton
+                    backgroundColor="#607D8B"
+                    title="Admin Panel"
+                    iconSource={require('../assets/images/White Search Icon.png')}
+                    onPress={handleAdminDashboardPress}
+                  />
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -316,6 +402,15 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     padding: 20,
     paddingBottom: 120, // Add padding for navbar
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  greetingContainer: {
+    flex: 1,
+    marginTop: 30,
   },
   greeting: {
     fontFamily: 'Inter',
@@ -517,6 +612,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  settingsButton: {
+    padding: 5,
+  },
+  settingsButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

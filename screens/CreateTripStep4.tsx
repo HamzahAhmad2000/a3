@@ -87,6 +87,7 @@ const CreateTripStep4: React.FC = () => {
         payment_method: tripData.paymentMethod || 'cash',
         promo_code: tripData.promoCode || '',
         group_join: false,
+        driver_type: tripData.driverType || 'self',
         fare: (() => {
           if (typeof tripData.fare === 'number') {
             return tripData.fare;
